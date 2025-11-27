@@ -1,0 +1,29 @@
+name: Keep Supabase Active
+
+on:
+  schedule:
+    # Run every 5 days at 09:00 UTC
+    - cron: '0 9 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Error: NEXT_PUBLIC_SUPABASE_URL secret is not set in GitHub Actions secrets."
+            exit 1
+          fi
+
+          echo "Pinging Supabase project to keep it active..."
+          # We ping the health check endpoint or REST root to wake it up
+          # Using -f to fail on HTTP errors, -s for silent, -o /dev/null to discard output
+          # We try a few endpoints to be sure
+          
+          curl -I "$SUPABASE_URL"
+          curl -fsSo /dev/null "$SUPABASE_URL/rest/v1/" || echo "REST endpoint ping failed or returned 404 (expected if no auth)"
+
