@@ -2,8 +2,8 @@ name: Keep Supabase Active
 
 on:
   schedule:
-    # Run every 5 days at 09:00 UTC
-    - cron: '0 9 */5 * *'
+    # Run every day at 09:00 UTC to ensure activity is frequent enough
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,17 +13,22 @@ jobs:
       - name: Ping Supabase
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "Error: NEXT_PUBLIC_SUPABASE_URL secret is not set in GitHub Actions secrets."
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "Error: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY secret is not set in GitHub Actions secrets."
             exit 1
           fi
 
           echo "Pinging Supabase project to keep it active..."
-          # We ping the health check endpoint or REST root to wake it up
-          # Using -f to fail on HTTP errors, -s for silent, -o /dev/null to discard output
-          # We try a few endpoints to be sure
           
+          # Simple ping to the URL
           curl -I "$SUPABASE_URL"
-          curl -fsSo /dev/null "$SUPABASE_URL/rest/v1/" || echo "REST endpoint ping failed or returned 404 (expected if no auth)"
+          
+          # Perform a real database query to the posts table to register activity
+          # We use the REST API to select 1 row from 'posts'
+          curl -fsS -X GET "$SUPABASE_URL/rest/v1/posts?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -H "Range: 0-0" || echo "Database query failed, check RLS or table existence"
 
